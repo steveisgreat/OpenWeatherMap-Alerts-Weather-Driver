@@ -145,7 +145,7 @@ The way the 'optional' attributes work:
 //file:noinspection GroovyAssignabilityCheck
 //file:noinspection GrDeprecatedAPIUsage
 
-static String version()	{  return '0.7.2'  }
+static String version()	{  return '0.7.3'  }
 import groovy.transform.Field
 
 metadata {
