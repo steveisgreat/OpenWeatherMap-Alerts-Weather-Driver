@@ -152,7 +152,7 @@ import groovy.transform.Field
 
 metadata {
 	definition (name: 'OpenWeatherMap-Alerts Weather Driver',
-		namespace: 'Matthew',
+		namespace: 'sriley-claude',
 		author: 'Scottma61',
 		importUrl: 'https://raw.githubusercontent.com/steveisgreat/OpenWeatherMap-Alerts-Weather-Driver/master/OpenWeatherMap-Alerts%2520Weather%2520Driver.groovy') {
 
