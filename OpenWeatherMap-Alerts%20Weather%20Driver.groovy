@@ -48,9 +48,11 @@
 	on an 'AS IS' BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
 	for the specific language governing permissions and limitations under the License.
 
-	Last Update 03/19/2026
+	Last Update 07/09/2026
 	{ Left room below to document version changes...}
 
+    V0.7.4	07/09/2026	Performance: suppress events whose value is unchanged (less event/database churn per poll);
+						only delete current states that exist; fixed cloudDayAfterTomorrow delete typo.
     V0.7.3	03/19/2026	Clear NWS alerts after they expire (@rschumaker).
 	V0.7.2	01/17/2026	Replaced small icons with unicode charactersin dashboard tiles.
 	V0.7.1	07/29/2024	Added attribute 'alertDescrFull' that contain the full text of up to 10 current alerts.
@@ -145,14 +147,14 @@ The way the 'optional' attributes work:
 //file:noinspection GroovyAssignabilityCheck
 //file:noinspection GrDeprecatedAPIUsage
 
-static String version()	{  return '0.7.3'  }
+static String version()	{  return '0.7.4'  }
 import groovy.transform.Field
 
 metadata {
 	definition (name: 'OpenWeatherMap-Alerts Weather Driver',
 		namespace: 'Matthew',
 		author: 'Scottma61',
-		importUrl: 'https://raw.githubusercontent.com/HubitatCommunity/OpenWeatherMap-Alerts-Weather-Driver/master/OpenWeatherMap-Alerts%2520Weather%2520Driver.groovy') {
+		importUrl: 'https://raw.githubusercontent.com/steveisgreat/OpenWeatherMap-Alerts-Weather-Driver/master/OpenWeatherMap-Alerts%2520Weather%2520Driver.groovy') {
 
 		capability 'Sensor'
 		capability 'Temperature Measurement'
@@ -659,11 +661,11 @@ void pollOWMHandler(resp, data) {
 				myUpdData('imgName2', sIMGS5 + tmpImg2 + sRB)
 			}
 			if(condition_icon_urlPublish) {
-				sendEvent(name: 'condition_icon_url1', value: tmpImg1)
-				sendEvent(name: 'condition_icon_url2', value: tmpImg2)
+				sendEventIfChanged(name: 'condition_icon_url1', value: tmpImg1)
+				sendEventIfChanged(name: 'condition_icon_url2', value: tmpImg2)
 			}else{
-				device.deleteCurrentState('condition_icon_url1')
-				device.deleteCurrentState('condition_icon_url2')
+				remCurrentState('condition_icon_url1')
+				remCurrentState('condition_icon_url2')
 			}
 
 		}
@@ -673,8 +675,8 @@ void pollOWMHandler(resp, data) {
 			myUpdData('rainTomorrow', myGetData('Precip1'))
 			myUpdData('rainDayAfterTomorrow', myGetData('Precip2'))
 		}else{
-			device.deleteCurrentState('rainTomorrow')
-			device.deleteCurrentState('rainDayAfterTomorrow')
+			remCurrentState('rainTomorrow')
+			remCurrentState('rainDayAfterTomorrow')
 		}
 
 		if(cloudExtendedPublish){
@@ -682,9 +684,9 @@ void pollOWMHandler(resp, data) {
 			myUpdData('cloudTomorrow', myGetData('Cloud1'))
 			myUpdData('cloudDayAfterTomorrow', myGetData('Cloud2'))
 		}else{
-			device.deleteCurrentState('cloudToday')
-			device.deleteCurrentState('cloudTomorrow')
-			device.deleteCurrentState('cloudDayAfterTomorrrow')
+			remCurrentState('cloudToday')
+			remCurrentState('cloudTomorrow')
+			remCurrentState('cloudDayAfterTomorrow')
 		}
 
 		updateLux(false)
@@ -725,9 +727,9 @@ void pollOWMHandler(resp, data) {
 // with HTTP errors, leaving curAl permanently stale.
 				        if(myGetData('curAl') == sNCWA) {
             				clearAlerts()
-            				sendEvent(name: 'alert', value: myGetData('alert'))
-            				sendEvent(name: 'alertDescr', value: myGetData('alertDescr'))
-            				sendEvent(name: 'alertSender', value: myGetData('alertSender'))
+            				sendEventIfChanged(name: 'alert', value: myGetData('alert'))
+            				sendEventIfChanged(name: 'alertDescr', value: myGetData('alertDescr'))
+            				sendEventIfChanged(name: 'alertSender', value: myGetData('alertSender'))
         				}
                         myUpdData('alertDescrFull', alertDescrFull)
                         LOGINFO('OWM Weather Alert: alertDescrFull Length: ' + myGetData('alertDescrFull').length() + '; Description: ' + myGetData('alertDescrFull'))
@@ -763,10 +765,10 @@ void pollOWMHandler(resp, data) {
 				}
 			}
 			myUpdData('alertTile', alertTile)
-            sendEvent(name: 'alert', value: myGetData('alert'))
-            sendEvent(name: 'alertDescr', value: myGetData('alertDescr'))
-            sendEvent(name: 'alertSender', value: myGetData('alertSender'))
-            sendEvent(name: 'alertTile', value: myGetData('alertTile'))
+            sendEventIfChanged(name: 'alert', value: myGetData('alert'))
+            sendEventIfChanged(name: 'alertDescr', value: myGetData('alertDescr'))
+            sendEventIfChanged(name: 'alertSender', value: myGetData('alertSender'))
+            sendEventIfChanged(name: 'alertTile', value: myGetData('alertTile'))
 			//  >>>>>>>>>> End Built alertTile <<<<<<<<<<
 		}
 // >>>>>>>>>> End Setup Forecast Variables <<<<<<<<<<
@@ -847,7 +849,7 @@ void clearAlerts(){
     if(alertPublish) {
         myUpdData('alertDescrFull', sNCWA)
     }else{
-        device.deleteCurrentState('alertDescrFull')
+        remCurrentState('alertDescrFull')
     }    
 }
 
@@ -1039,98 +1041,98 @@ void PostPoll() {
 	String ddisp_r = myGetData('ddisp_r')==sNULL ? '%2.0f' : myGetData('ddisp_r')
 
     if(alertPublish) {
-        sendEvent(name: 'alertDescrFull', value: myGetData('alertDescrFull'))
+        sendEventIfChanged(name: 'alertDescrFull', value: myGetData('alertDescrFull'))
     }else{
-        device.deleteCurrentState('alertDescrFull')
+        remCurrentState('alertDescrFull')
     }
 
 	String tfmt='yyyy-MM-dd\'T\'HH:mm:ssXXX'
 	String tfmt1=myGetData('timeFormat')
 	if(localSunrisePublish){  // don't bother setting these values if it's not enabled
-		sendEvent(name: 'tw_begin', value: myGetData('tw_begin'))
-		sendEvent(name: 'sunriseTime', value: myGetData('riseTime'))
-		sendEvent(name: 'noonTime', value: myGetData('noonTime'))
-		sendEvent(name: 'sunsetTime', value: myGetData('setTime'))
-		sendEvent(name: 'tw_end', value: myGetData('tw_end'))
+		sendEventIfChanged(name: 'tw_begin', value: myGetData('tw_begin'))
+		sendEventIfChanged(name: 'sunriseTime', value: myGetData('riseTime'))
+		sendEventIfChanged(name: 'noonTime', value: myGetData('noonTime'))
+		sendEventIfChanged(name: 'sunsetTime', value: myGetData('setTime'))
+		sendEventIfChanged(name: 'tw_end', value: myGetData('tw_end'))
 	}else{
-		device.deleteCurrentState('tw_begin')
-		device.deleteCurrentState('sunriseTime')
-		device.deleteCurrentState('noonTime')
-		device.deleteCurrentState('sunsetTime')
-		device.deleteCurrentState('tw_end')
+		remCurrentState('tw_begin')
+		remCurrentState('sunriseTime')
+		remCurrentState('noonTime')
+		remCurrentState('sunsetTime')
+		remCurrentState('tw_end')
 	}
 	if(dashSharpToolsPublish || dashSmartTilesPublish || localSunrisePublish) {
-		sendEvent(name: 'localSunset', value: myGetData('localSunset')) // only needed for certain dashboards
-		sendEvent(name: 'localSunrise', value: myGetData('localSunrise')) // only needed for certain dashboards
+		sendEventIfChanged(name: 'localSunset', value: myGetData('localSunset')) // only needed for certain dashboards
+		sendEventIfChanged(name: 'localSunrise', value: myGetData('localSunrise')) // only needed for certain dashboards
 	}else{
-		device.deleteCurrentState('localSunset')
-		device.deleteCurrentState('localSunrise')
+		remCurrentState('localSunset')
+		remCurrentState('localSunrise')
 	}
 
 /*  Capability Data Elements */
-	sendEvent(name: 'humidity', value: myGetDataBD('humidity'), unit: '%')
-	sendEvent(name: 'illuminance', value: myGetData('illuminance').toInteger(), unit: 'lx')
-	sendEvent(name: 'pressure', value: myGetDataBD('pressure'), unit: myGetData(sPMETR))
+	sendEventIfChanged(name: 'humidity', value: myGetDataBD('humidity'), unit: '%')
+	sendEventIfChanged(name: 'illuminance', value: myGetData('illuminance').toInteger(), unit: 'lx')
+	sendEventIfChanged(name: 'pressure', value: myGetDataBD('pressure'), unit: myGetData(sPMETR))
 	if(dashSharpToolsPublish || dashSmartTilesPublish){
-		sendEvent(name: 'pressured', value: String.format(ddisp_p, myGetDataBD('pressure')), unit: myGetData(sPMETR))
+		sendEventIfChanged(name: 'pressured', value: String.format(ddisp_p, myGetDataBD('pressure')), unit: myGetData(sPMETR))
 	}else{
-		device.deleteCurrentState('pressured')
+		remCurrentState('pressured')
 	}
 	String tmetr= myGetData(sTMETR)
-	sendEvent(name: sTEMP, value: myGetDataBD(sTEMP), unit: tmetr)
-	sendEvent(name: 'ultravioletIndex', value: myGetDataBD('ultravioletIndex'), unit: 'uvi')
-	sendEvent(name: 'feelsLike', value: myGetDataBD('feelsLike'), unit: tmetr)
+	sendEventIfChanged(name: sTEMP, value: myGetDataBD(sTEMP), unit: tmetr)
+	sendEventIfChanged(name: 'ultravioletIndex', value: myGetDataBD('ultravioletIndex'), unit: 'uvi')
+	sendEventIfChanged(name: 'feelsLike', value: myGetDataBD('feelsLike'), unit: tmetr)
 
 /*  'Required for Dashboards' Data Elements */
 	if(dashHubitatOWMPublish || dashSharpToolsPublish || dashSmartTilesPublish || cityPublish) {
-		sendEvent(name: 'city', value: myGetData('city'))
+		sendEventIfChanged(name: 'city', value: myGetData('city'))
 	}else{
-		device.deleteCurrentState('city')
+		remCurrentState('city')
 	}
 	if(dashSharpToolsPublish) {
-		sendEvent(name: 'forecastIcon', value: getCondCode(myGetData('condition_id').toInteger(), myGetData('is_day')))
+		sendEventIfChanged(name: 'forecastIcon', value: getCondCode(myGetData('condition_id').toInteger(), myGetData('is_day')))
 	}else{
-		device.deleteCurrentState('forecastIcon')
+		remCurrentState('forecastIcon')
 	}
 	if(dashSharpToolsPublish || dashSmartTilesPublish || rainTodayPublish) {
-		sendEvent(name: 'rainToday', value: myGetDataBD('rainToday'), unit: myGetData(sRMETR))
+		sendEventIfChanged(name: 'rainToday', value: myGetDataBD('rainToday'), unit: myGetData(sRMETR))
 	}else{
-		device.deleteCurrentState('rainToday')
+		remCurrentState('rainToday')
 	}
 	if(dashSharpToolsPublish || dashSmartTilesPublish || percentPrecipPublish) {
-		sendEvent(name: 'percentPrecip', value: myGetData('percentPrecip').toInteger())
+		sendEventIfChanged(name: 'percentPrecip', value: myGetData('percentPrecip').toInteger())
 	}else{
-		device.deleteCurrentState('percentPrecip')
+		remCurrentState('percentPrecip')
 	}
 	if(dashSharpToolsPublish || dashSmartTilesPublish) {
-		sendEvent(name: 'weather', value: myGetData('condition_text'))
+		sendEventIfChanged(name: 'weather', value: myGetData('condition_text'))
 	}else{
-		device.deleteCurrentState('weather')
+		remCurrentState('weather')
 	}
 	if(dashSharpToolsPublish || dashSmartTilesPublish) {
-		sendEvent(name: 'weatherIcon', value: getCondCode(myGetData('condition_id').toInteger(), myGetData('is_day')))
+		sendEventIfChanged(name: 'weatherIcon', value: getCondCode(myGetData('condition_id').toInteger(), myGetData('is_day')))
 	}else{
-		device.deleteCurrentState('weatherIcon')
+		remCurrentState('weatherIcon')
 	}
 	if(dashHubitatOWMPublish) {
-		sendEvent(name: "weatherIcons", value: myGetData('OWN_icon'))
+		sendEventIfChanged(name: "weatherIcons", value: myGetData('OWN_icon'))
 	}else{
-		device.deleteCurrentState('weatherIcons')
+		remCurrentState('weatherIcons')
 	}
 	if(dashHubitatOWMPublish || dashSharpToolsPublish || windPublish) {
-		sendEvent(name: 'wind', value: myGetDataBD('wind'), unit: myGetData(sDMETR))
+		sendEventIfChanged(name: 'wind', value: myGetDataBD('wind'), unit: myGetData(sDMETR))
 	}else{
-		device.deleteCurrentState('wind')
+		remCurrentState('wind')
 	}
 	if(dashHubitatOWMPublish) {
-		sendEvent(name: 'windSpeed', value: myGetDataBD('wind'), unit: myGetData(sDMETR))
+		sendEventIfChanged(name: 'windSpeed', value: myGetDataBD('wind'), unit: myGetData(sDMETR))
 	}else{
-		device.deleteCurrentState('windSpeed')
+		remCurrentState('windSpeed')
 	}
 	if(dashHubitatOWMPublish) {
-		sendEvent(name: 'windDirection', value: myGetData('wind_degree').toInteger(), unit: 'DEGREE')
+		sendEventIfChanged(name: 'windDirection', value: myGetData('wind_degree').toInteger(), unit: 'DEGREE')
 	}else{
-		device.deleteCurrentState('windDirection')
+		remCurrentState('windDirection')
 	}
 
 /*  Selected optional Data Elements */
@@ -1143,42 +1145,42 @@ void PostPoll() {
 	sendEventPublish(name: 'forecast_code', value: myGetData('forecast_code'))
 	if(forecast_textPublish) {
 		sendEventPublish(name: 'forecast_text', value: myGetData('forecast_text'))
-		sendEvent(name: 'forecast_text1', value: myGetData('forecast_text1'))
-		sendEvent(name: 'forecast_text2', value: myGetData('forecast_text2'))
+		sendEventIfChanged(name: 'forecast_text1', value: myGetData('forecast_text1'))
+		sendEventIfChanged(name: 'forecast_text2', value: myGetData('forecast_text2'))
 	}else{
-		device.deleteCurrentState('forecast_text1')
-		device.deleteCurrentState('forecast_text2')
+		remCurrentState('forecast_text1')
+		remCurrentState('forecast_text2')
 	}
 	if(fcstHighLowPublish){ // don't bother setting these values if it's not enabled
-		sendEvent(name: 'forecastHigh', value: myGetDataBD('forecastHigh'), unit: tmetr)
-		sendEvent(name: 'forecastHigh1', value: myGetDataBD('forecastHigh1'), unit: tmetr)
-		sendEvent(name: 'forecastHigh2', value: myGetDataBD('forecastHigh2'), unit: tmetr)
-		sendEvent(name: 'forecastLow', value: myGetDataBD('forecastLow'), unit: tmetr)
-		sendEvent(name: 'forecastLow1', value: myGetDataBD('forecastLow1'), unit: tmetr)
-		sendEvent(name: 'forecastLow2', value: myGetDataBD('forecastLow2'), unit: tmetr)
-		sendEvent(name: 'forecastMorn', value: myGetDataBD('forecastMorn'), unit: tmetr)
-		sendEvent(name: 'forecastDay', value: myGetDataBD('forecastDay'), unit: tmetr)
-		sendEvent(name: 'forecastEve', value: myGetDataBD('forecastEve'), unit: tmetr)
-		sendEvent(name: 'forecastNight', value: myGetDataBD('forecastNight'), unit: tmetr)
-		sendEvent(name: 'forecastMorn1', value: myGetDataBD('forecastMorn1'), unit: tmetr)
-		sendEvent(name: 'forecastDay1', value: myGetDataBD('forecastDay1'), unit: tmetr)
-		sendEvent(name: 'forecastEve1', value: myGetDataBD('forecastEve1'), unit: tmetr)
-		sendEvent(name: 'forecastNight1', value: myGetDataBD('forecastNight1'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastHigh', value: myGetDataBD('forecastHigh'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastHigh1', value: myGetDataBD('forecastHigh1'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastHigh2', value: myGetDataBD('forecastHigh2'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastLow', value: myGetDataBD('forecastLow'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastLow1', value: myGetDataBD('forecastLow1'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastLow2', value: myGetDataBD('forecastLow2'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastMorn', value: myGetDataBD('forecastMorn'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastDay', value: myGetDataBD('forecastDay'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastEve', value: myGetDataBD('forecastEve'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastNight', value: myGetDataBD('forecastNight'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastMorn1', value: myGetDataBD('forecastMorn1'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastDay1', value: myGetDataBD('forecastDay1'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastEve1', value: myGetDataBD('forecastEve1'), unit: tmetr)
+		sendEventIfChanged(name: 'forecastNight1', value: myGetDataBD('forecastNight1'), unit: tmetr)
 	}else{
-		device.deleteCurrentState('forecastHigh')
-		device.deleteCurrentState('forecastHigh1')
-		device.deleteCurrentState('forecastHigh2')
-		device.deleteCurrentState('forecastLow')
-		device.deleteCurrentState('forecastLow1')
-		device.deleteCurrentState('forecastLow2')
-		device.deleteCurrentState('forecastMorn')
-		device.deleteCurrentState('forecastDay')
-		device.deleteCurrentState('forecastEve')
-		device.deleteCurrentState('forecastNight')
-		device.deleteCurrentState('forecastMorn1')
-		device.deleteCurrentState('forecastDay1')
-		device.deleteCurrentState('forecastEve1')
-		device.deleteCurrentState('forecastNight1')
+		remCurrentState('forecastHigh')
+		remCurrentState('forecastHigh1')
+		remCurrentState('forecastHigh2')
+		remCurrentState('forecastLow')
+		remCurrentState('forecastLow1')
+		remCurrentState('forecastLow2')
+		remCurrentState('forecastMorn')
+		remCurrentState('forecastDay')
+		remCurrentState('forecastEve')
+		remCurrentState('forecastNight')
+		remCurrentState('forecastMorn1')
+		remCurrentState('forecastDay1')
+		remCurrentState('forecastEve1')
+		remCurrentState('forecastNight1')
 	}
 	sendEventPublish(name: 'illuminated', value: myGetData('illuminated') + ' lx')
 	sendEventPublish(name: 'is_day', value: myGetData('is_day'))
@@ -1186,45 +1188,45 @@ void PostPoll() {
 	//suncalc
 	if(suncalcPublish){  // don't bother setting these values if it's not enabled
 		LinkedHashMap<String,Double> coords = getPosition()
-		sendEvent(name: 'altitude', value: coords.altitude)
-		sendEvent(name: 'azimuth', value: coords.azimuth)
+		sendEventIfChanged(name: 'altitude', value: coords.altitude)
+		sendEventIfChanged(name: 'azimuth', value: coords.azimuth)
 	}else{
-		device.deleteCurrentState('altitude')
-		device.deleteCurrentState('azimuth')
+		remCurrentState('altitude')
+		remCurrentState('azimuth')
 	}
 
-    sendEvent(name: 'moonrise', value: myGetData('moonrise'))
-    sendEvent(name: 'moonset', value: myGetData('moonset'))
-    sendEvent(name: 'moon_phase', value: myGetData('moon_phase'))
+    sendEventIfChanged(name: 'moonrise', value: myGetData('moonrise'))
+    sendEventIfChanged(name: 'moonset', value: myGetData('moonset'))
+    sendEventIfChanged(name: 'moon_phase', value: myGetData('moon_phase'))
     
 	if(obspollPublish){  // don't bother setting these values if it's not enabled
 		TimeZone tZ= TimeZone.getDefault()
-		sendEvent(name: 'last_poll_Forecast', value: new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('futime')).format(myGetData('dateFormat'), tZ) + ', ' + new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('futime')).format(tfmt1, tZ))
-		sendEvent(name: 'last_observation_Forecast', value: new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('fotime')).format(myGetData('dateFormat'), tZ) + ', ' + new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('fotime')).format(tfmt1, tZ))
+		sendEventIfChanged(name: 'last_poll_Forecast', value: new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('futime')).format(myGetData('dateFormat'), tZ) + ', ' + new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('futime')).format(tfmt1, tZ))
+		sendEventIfChanged(name: 'last_observation_Forecast', value: new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('fotime')).format(myGetData('dateFormat'), tZ) + ', ' + new Date().parse('EEE MMM dd HH:mm:ss z yyyy', myGetData('fotime')).format(tfmt1, tZ))
 	}else{
-		device.deleteCurrentState('last_poll_Forecast')
-		device.deleteCurrentState('last_observation_Forecast')
+		remCurrentState('last_poll_Forecast')
+		remCurrentState('last_observation_Forecast')
 	}
 
 	if(precipExtendedPublish){ // don't bother setting these values if it's not enabled
-		sendEvent(name: 'rainTomorrow', value: myGetDataBD('rainTomorrow'), unit: myGetData(sRMETR))
-		sendEvent(name: 'rainDayAfterTomorrow', value: myGetDataBD('rainDayAfterTomorrow'), unit: myGetData(sRMETR))
-		sendEvent(name: 'PoP1', value: myGetData('PoP1').toInteger())
-		sendEvent(name: 'PoP2', value: myGetData('PoP2').toInteger())
+		sendEventIfChanged(name: 'rainTomorrow', value: myGetDataBD('rainTomorrow'), unit: myGetData(sRMETR))
+		sendEventIfChanged(name: 'rainDayAfterTomorrow', value: myGetDataBD('rainDayAfterTomorrow'), unit: myGetData(sRMETR))
+		sendEventIfChanged(name: 'PoP1', value: myGetData('PoP1').toInteger())
+		sendEventIfChanged(name: 'PoP2', value: myGetData('PoP2').toInteger())
 	}else{
-		device.deleteCurrentState('rainTomorrow')
-		device.deleteCurrentState('rainDayAfterTomorrow')
-		device.deleteCurrentState('PoP1')
-		device.deleteCurrentState('PoP2')
+		remCurrentState('rainTomorrow')
+		remCurrentState('rainDayAfterTomorrow')
+		remCurrentState('PoP1')
+		remCurrentState('PoP2')
 	}
 	if(cloudExtendedPublish){ // don't bother setting these values if it's not enabled
-		sendEvent(name: 'cloudToday', value: myGetData('cloudToday').toInteger(), unit: '%')
-		sendEvent(name: 'cloudTomorrow', value: myGetData('cloudTomorrow').toInteger(), unit: '%')
-		sendEvent(name: 'cloudDayAfterTomorrow', value: myGetData('cloudDayAfterTomorrow').toInteger(), unit: '%')
+		sendEventIfChanged(name: 'cloudToday', value: myGetData('cloudToday').toInteger(), unit: '%')
+		sendEventIfChanged(name: 'cloudTomorrow', value: myGetData('cloudTomorrow').toInteger(), unit: '%')
+		sendEventIfChanged(name: 'cloudDayAfterTomorrow', value: myGetData('cloudDayAfterTomorrow').toInteger(), unit: '%')
 	}else{
-		device.deleteCurrentState('cloudToday')
-		device.deleteCurrentState('cloudTomorrow')
-		device.deleteCurrentState('cloudDayAfterTomorrrow')
+		remCurrentState('cloudToday')
+		remCurrentState('cloudTomorrow')
+		remCurrentState('cloudDayAfterTomorrow')
 	}
 
 	sendEventPublish(name: 'vis', value: Math.round(myGetDataBD('vis') * mult_twd) / mult_twd, unit: (myGetData(sDMETR)=='MPH' ? 'miles' : 'kilometers'))
@@ -1298,9 +1300,9 @@ void PostPoll() {
 		if(my3day.length() > 1024) {
 			LOGWARN('Too much data to display.</br></br>Current threedayfcstTile length (' + my3day.length() + ') exceeds maximum tile length by ' + (my3day.length() - 1024).toString()  + ' characters.')
 		}
-		sendEvent(name: 'threedayfcstTile', value: my3day.take(1024))
+		sendEventIfChanged(name: 'threedayfcstTile', value: my3day.take(1024))
 	}else{
-		device.deleteCurrentState('threedayfcstTile')
+		remCurrentState('threedayfcstTile')
 	}
 //  >>>>>>>>>> End Built 3dayfcstTile <<<<<<<<<<
 	buildMyText()
@@ -1385,9 +1387,9 @@ void buildMyText() {
 		if (mytext.length() > 1024) {
 			LOGWARN('Too much data to display.</br></br>Current myTile length (' + mytext.length() + ') exceeds maximum tile length by ' + (mytext.length() - 1024).toString() + ' characters.')
 		}
-		sendEvent(name: 'myTile', value: mytext.take(1024))
+		sendEventIfChanged(name: 'myTile', value: mytext.take(1024))
 	}else{
-		device.deleteCurrentState('myTile')
+		remCurrentState('myTile')
 	}
 //  >>>>>>>>>> End Built mytext <<<<<<<<<<
 }
@@ -1860,7 +1862,7 @@ void SummaryMessage(Boolean SType, String Slast_poll_date, String Slast_poll_tim
 		wSum+= myGetData('wind_string') + ', gusts: ' + ((windgust == 0.00) ? 'calm. ' : 'up to ' + windgust + sSPC + myGetData(sDMETR) + sDOT)
 	}
 	wSum = wSum.take(1024)
-	sendEvent(name: 'weatherSummary', value: wSum)
+	sendEventIfChanged(name: 'weatherSummary', value: wSum)
 }
 
 String getImgName(Integer wCode, String iconTOD){
@@ -1915,11 +1917,38 @@ void settingsOff(){
 void sendEventPublish(evt)	{
 //	Purpose: Attribute sent to DB if selected
 	if (settings."${evt.name + 'Publish'}") {
-		sendEvent(name: evt.name, value: evt.value, descriptionText: evt.descriptionText, unit: evt.unit, displayed: evt.displayed)
+		sendEventIfChanged(name: evt.name, value: evt.value, descriptionText: evt.descriptionText, unit: evt.unit, displayed: evt.displayed)
 		LOGINFO('Will publish: ' + (String)evt.name) //: evt.name, evt.value evt.unit'
 	} else {
-		device.deleteCurrentState((String)evt.name)
+		remCurrentState((String)evt.name)
 	}
+}
+
+/**
+ * send event only when the value actually changed; unchanged values are dropped
+ * so each poll no longer floods the event table and database with duplicates
+ */
+void sendEventIfChanged(Map evt) {
+	if (isSameValue(device.currentValue((String)evt.name), evt.value)) return
+	sendEvent(evt)
+}
+
+private static Boolean isSameValue(oldV, newV) {
+	if (oldV == null || newV == null) return false
+	String o = oldV.toString()
+	String n = newV.toString()
+	if (o == n) return true
+	// numeric compare catches representation differences like 72 vs 72.0
+	if (o.isBigDecimal() && n.isBigDecimal()) return o.toBigDecimal() == n.toBigDecimal()
+	return false
+}
+
+/**
+ * delete current state only if the attribute actually holds a value,
+ * avoiding needless database deletes on every poll
+ */
+void remCurrentState(String name) {
+	if (device.currentValue(name) != null) device.deleteCurrentState(name)
 }
 
 ///
